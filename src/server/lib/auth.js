@@ -2,6 +2,7 @@ var passport = require('passport');
 var LocalStrategy = require('passport-local').Strategy;
 
 var knex = require('../../../db/knex');
+var helpers = require('./helpers');
 
 
 passport.use(new LocalStrategy({
@@ -16,7 +17,8 @@ passport.use(new LocalStrategy({
       }
       var user = data[0];
       // email found but do the passwords match?
-      if (password === user.password) {
+      console.log(helpers.comparePassword(password, user.password))
+      if (helpers.comparePassword(password, user.password)) {
         // passwords match! return user
         return done(null, user);
       } else {
@@ -46,5 +48,6 @@ passport.deserializeUser(function(id, done) {
     return done(err);
   });
 });
+
 
 module.exports = passport;

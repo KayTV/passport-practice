@@ -1,18 +1,17 @@
 var express = require('express');
 var router = express.Router();
-var knex = require('../../../db/knex');
-var passport = require('../lib/auth')
-function Users() {
-  return knex('users');
-}
 
-router.get('/', function(req, res, next) {
-  console.log(req.user);
-  res.render('index', {title: 'Welcome', user: req.user});
+var knex = require('../../../db/knex');
+var passport = require('../lib/auth');
+var helpers = require('../lib/helpers');
+
+
+router.get('/', helpers.ensureAuthenticated, function(req, res, next) {
+  res.render('index', {user: req.user});
 });
 
-router.get('/login', function(req, res, next) {
-  res.render('login', { title: 'Login Page' });
+router.get('/login', helpers.loginRedirect, function(req, res, next) {
+  res.render('login');
 });
 
 router.post('/login', function(req, res, next) {
@@ -31,36 +30,44 @@ router.post('/login', function(req, res, next) {
   })(req, res, next);
 });
 
-router.get('/signup', function(req, res, next) {
+router.get('/signup', helpers.loginRedirect, function(req, res, next) {
   res.render('signup');
 });
 
 router.post('/signup', function(req, res, next) {
-  //check if email is unique knex
-  //if email is in the database, tell user
-  //if email is not in database, insert it
   var email = req.body.email;
   var password = req.body.password;
-  Users().where('email', email)
-  .then(function(data){
-    if(data.length) {
-      res.render('signup', {title: 'Error', errors: ['Email already exists']})
-    } else {
-      Users().insert(req.body, 'id') //i think if you want the next id number say insert({email: email, password: password})
-      .then(function(){
-        res.redirect('/');
-      }).catch(function(err){
-        return next(err);
-      })
-    }
-  }) .catch(function(err){
-    return next(err);
-  })
+  // check if email is unique
+  knex('users').where('email', email)
+    .then(function(data){
+      // if email is in the database send an error
+      if(data.length) {
+        return res.send('crap');
+      } else {
+        // hash and salt the password
+        var hashedPassword = helpers.hashing(password);
+        // if email is not in the database insert it
+        knex('users').insert({
+          email: email,
+          password: hashedPassword
+        })
+        .then(function(data) {
+          return res.redirect('/login');
+        })
+        .catch(function(err) {
+          return res.send('crap');
+        });
+      }
+    })
+    .catch(function(err){
+      return next(err);
+    });
 });
 
-router.get('/logout', function(req, res, next) {
+router.get('/logout', helpers.ensureAuthenticated, function(req, res, next) {
   req.logout();
-  res.redirect('/')
+  res.redirect('/');
 });
+
 
 module.exports = router;
